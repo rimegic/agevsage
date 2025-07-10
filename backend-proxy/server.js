@@ -1,4 +1,3 @@
-
 // 1. 필요한 패키지 가져오기
 require('dotenv').config(); // .env 파일의 환경 변수를 로드
 const express = require('express');
@@ -19,31 +18,30 @@ app.set('trust proxy', 1); // 프록시 뒤에 있는 경우 실제 IP를 가져
 app.use(express.static(path.join(__dirname, '..')));
 
 // 5. IP 기반 API 호출 제한을 위한 인메모리 데이터베이스
-const apiUsage = {};
-const MAX_REQUESTS_PER_DAY = 20;
+const apiUsage = {}; // { ip: [timestamp1, timestamp2, ...] }
+const MAX_REQUESTS_PER_PERIOD = 20;
+const TIME_PERIOD_MS = 5 * 60 * 1000; // 5분 (밀리초)
 
 // 6. API 호출 제한 미들웨어
 const rateLimiter = (req, res, next) => {
     const ip = req.ip;
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD 형식
+    const now = Date.now();
 
     if (!apiUsage[ip]) {
-        apiUsage[ip] = { count: 0, date: today };
+        apiUsage[ip] = [];
     }
 
-    // 날짜가 바뀌면 카운트 초기화
-    if (apiUsage[ip].date !== today) {
-        apiUsage[ip] = { count: 0, date: today };
-    }
+    // TIME_PERIOD_MS 이내의 요청만 필터링
+    apiUsage[ip] = apiUsage[ip].filter(timestamp => now - timestamp < TIME_PERIOD_MS);
 
-    if (apiUsage[ip].count >= MAX_REQUESTS_PER_DAY) {
+    if (apiUsage[ip].length >= MAX_REQUESTS_PER_PERIOD) {
         return res.status(429).json({ 
-            error: '일일 API 사용량을 초과했습니다. 내일 다시 시도해주세요.' 
+            error: `5분당 API 사용량을 초과했습니다. 잠시 후 다시 시도해주세요. (최대 ${MAX_REQUESTS_PER_PERIOD}회)` 
         });
     }
 
-    apiUsage[ip].count++;
-    console.log(`[API Usage] IP: ${ip}, Count: ${apiUsage[ip].count}/${MAX_REQUESTS_PER_DAY}`);
+    apiUsage[ip].push(now);
+    console.log(`[API Usage] IP: ${ip}, Count: ${apiUsage[ip].length}/${MAX_REQUESTS_PER_PERIOD} in ${TIME_PERIOD_MS / 1000 / 60} minutes`);
     next();
 };
 
