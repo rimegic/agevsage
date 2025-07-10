@@ -1,50 +1,75 @@
+
 // 1. 필요한 패키지 가져오기
 require('dotenv').config(); // .env 파일의 환경 변수를 로드
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const path = require('path'); // 1. path 모듈 추가
+const path = require('path');
 
 // 2. Express 앱 초기화
 const app = express();
-const PORT = process.env.PORT || 3000; // 서버 포트 설정
+const PORT = process.env.PORT || 3000;
 
 // 3. 미들웨어 설정
-app.use(cors()); // CORS 허용
-app.use(express.json()); // 요청 본문을 JSON으로 파싱
+app.use(cors());
+app.use(express.json());
+app.set('trust proxy', 1); // 프록시 뒤에 있는 경우 실제 IP를 가져오기 위해 필요
 
-// 4. 정적 파일 제공 설정 (가장 중요한 부분)
-// 현재 폴더(backend-proxy)의 부모 폴더(g/010)에 있는 파일들을 웹에서 접근 가능하게 만듭니다.
+// 4. 정적 파일 제공 설정
 app.use(express.static(path.join(__dirname, '..')));
 
-// 5. 프록시 API 엔드포인트 정의
-app.post('/api/generate', async (req, res) => {
+// 5. IP 기반 API 호출 제한을 위한 인메모리 데이터베이스
+const apiUsage = {};
+const MAX_REQUESTS_PER_DAY = 20;
+
+// 6. API 호출 제한 미들웨어
+const rateLimiter = (req, res, next) => {
+    const ip = req.ip;
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD 형식
+
+    if (!apiUsage[ip]) {
+        apiUsage[ip] = { count: 0, date: today };
+    }
+
+    // 날짜가 바뀌면 카운트 초기화
+    if (apiUsage[ip].date !== today) {
+        apiUsage[ip] = { count: 0, date: today };
+    }
+
+    if (apiUsage[ip].count >= MAX_REQUESTS_PER_DAY) {
+        return res.status(429).json({ 
+            error: '일일 API 사용량을 초과했습니다. 내일 다시 시도해주세요.' 
+        });
+    }
+
+    apiUsage[ip].count++;
+    console.log(`[API Usage] IP: ${ip}, Count: ${apiUsage[ip].count}/${MAX_REQUESTS_PER_DAY}`);
+    next();
+};
+
+// 7. 프록시 API 엔드포인트 정의 (미들웨어 적용)
+app.post('/api/generate', rateLimiter, async (req, res) => {
     try {
-        // 프론트엔드에서 보낸 'prompt'를 받음
         const { prompt } = req.body;
         if (!prompt) {
             return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        // 서버의 환경 변수에서 안전하게 API 키를 가져옴
         const apiKey = process.env.GOOGLE_API_KEY;
         if (!apiKey) {
             return res.status(500).json({ error: 'API key is not configured on the server.' });
         }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        // Google API에 보낼 데이터 구성
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
-            // API 응답을 더 일관성 있게 만들기 위한 설정 추가
             generationConfig: {
-                temperature: 0.4, // 창의성(무작위성)을 낮춰 일관된 JSON 응답 유도
+                temperature: 0.4,
                 topK: 1,
                 topP: 1,
                 maxOutputTokens: 2048,
             },
-            // 안전 설정: 유해 콘텐츠 차단 수준을 명시적으로 설정
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
@@ -53,10 +78,7 @@ app.post('/api/generate', async (req, res) => {
             ]
         };
 
-        // 5. Axios를 사용해 Google API에 요청 전송
         const googleResponse = await axios.post(apiUrl, payload);
-
-        // 6. Google API의 응답을 프론트엔드로 다시 전송
         res.json(googleResponse.data);
 
     } catch (error) {
@@ -66,7 +88,7 @@ app.post('/api/generate', async (req, res) => {
     }
 });
 
-// 6. 서버 실행
+// 8. 서버 실행
 app.listen(PORT, () => {
     console.log(`서버가 시작되었습니다. 브라우저에서 http://localhost:${PORT} 주소로 접속하세요.`);
 });
