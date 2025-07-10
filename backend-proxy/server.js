@@ -1,3 +1,4 @@
+
 // 1. 필요한 패키지 가져오기
 require('dotenv').config(); // .env 파일의 환경 변수를 로드
 const express = require('express');
@@ -45,12 +46,34 @@ const rateLimiter = (req, res, next) => {
     next();
 };
 
-// 7. 프록시 API 엔드포인트 정의 (미들웨어 적용)
+// 7. 인메모리 캐시 (검색된 인물 정보 저장)
+const searchCache = {}; // { query: { people: [...] } }
+
+// 8. 프록시 API 엔드포인트 정의 (미들웨어 적용)
 app.post('/api/generate', rateLimiter, async (req, res) => {
     try {
         const { prompt } = req.body;
         if (!prompt) {
             return res.status(400).json({ error: 'Prompt is required' });
+        }
+
+        // 프롬프트에서 검색할 인물 이름(query) 추출
+        const queryMatch = prompt.match(/검색할 인물: "(.*?)"/);
+        const query = queryMatch ? queryMatch[1] : null;
+
+        // 캐시 확인
+        if (query && searchCache[query]) {
+            console.log(`[Cache] Returning cached data for query: ${query}`);
+            // 프론트엔드가 기대하는 Google API 응답 형식으로 변환하여 반환
+            return res.json({
+                candidates: [{
+                    content: {
+                        parts: [{
+                            text: JSON.stringify({ people: searchCache[query] })
+                        }]
+                    }
+                }]
+            });
         }
 
         const apiKey = process.env.GOOGLE_API_KEY;
@@ -77,7 +100,24 @@ app.post('/api/generate', rateLimiter, async (req, res) => {
         };
 
         const googleResponse = await axios.post(apiUrl, payload);
-        res.json(googleResponse.data);
+        const responseData = googleResponse.data;
+
+        // Google API 응답에서 인물 정보 추출하여 캐시에 저장
+        const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+            try {
+                const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsedResponse = JSON.parse(cleanText);
+                if (parsedResponse.people && query) {
+                    searchCache[query] = parsedResponse.people;
+                    console.log(`[Cache] Stored data for query: ${query}`);
+                }
+            } catch (parseError) {
+                console.error('Error parsing Google API response for caching:', parseError);
+            }
+        }
+
+        res.json(responseData);
 
     } catch (error) {
         const errorMsg = error.response?.data?.error?.message || 'Failed to fetch from Google API';
@@ -86,7 +126,7 @@ app.post('/api/generate', rateLimiter, async (req, res) => {
     }
 });
 
-// 8. 서버 실행
+// 9. 서버 실행
 app.listen(PORT, () => {
     console.log(`서버가 시작되었습니다. 브라우저에서 http://localhost:${PORT} 주소로 접속하세요.`);
 });
