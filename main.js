@@ -83,7 +83,7 @@ async function handleSearch() {
         `;
 
         // 서버와 동일한 출처를 사용하므로 상대 경로로 변경
-        const apiUrl = 'https://backend-proxy.rimegic00.workers.dev/api/generate';
+        const apiUrl = '/api/generate';
         
         // 서버에 prompt만 담아서 전송
         const payload = { prompt };
