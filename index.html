@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인물 나이 검색</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* 기본 폰트 설정 */
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        /* 로딩 스피너 애니메이션 */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
+
+    <div class="container mx-auto max-w-4xl p-4 min-h-screen">
+        <!-- 페이지 제목 -->
+        <div class="text-center my-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-2">인물 나이 비교</h1>
+            <p class="text-gray-600">궁금한 인물들의 나이와 관계를 바로 확인해보세요.</p>
+        </div>
+
+        <!-- 검색창 -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6 sticky top-4 z-10">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="flex-1 relative">
+                    <input type="text" id="searchInput" placeholder="예: 유재석 아이유" class="w-full px-5 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <button id="searchButton" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 text-lg">
+                    확인하기
+                </button>
+            </div>
+        </div>
+
+        <!-- 로딩 및 결과 표시 영역 -->
+        <div id="resultsContainer" class="space-y-6">
+            <!-- 오류 메시지 표시 영역 -->
+            <div id="errorContainer" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-lg shadow"></div>
+            
+            <!-- 로딩 스피너 -->
+            <div id="loader" class="hidden justify-center items-center py-10">
+                <div class="loader"></div>
+                <p class="ml-4 text-gray-600">AI가 인물 정보를 검색하고 있습니다...</p>
+            </div>
+
+            <!-- 결과가 표시될 영역 -->
+            <div id="peopleCards" class="grid gap-6 md:grid-cols-2"></div>
+            <div id="differenceCard"></div>
+
+            <!-- 초기 안내 메시지 -->
+            <div id="usageGuide" class="bg-white/80 rounded-lg shadow-md p-6 border border-gray-200">
+                <h3 class="text-lg font-semibold mb-4 text-gray-700">이렇게 사용해보세요</h3>
+                <div class="space-y-2 text-gray-600">
+                    <p class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2 text-blue-500"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg> "이재명 조국" - 두 인물의 나이와 나이 차이를 비교합니다.</p>
+                    <p class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2 text-blue-500"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg> "문재인" - 한 인물의 현재 나이를 확인합니다.</p>
+                    <p class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2 text-blue-500"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg> "아이유 정국" - 여러 인물의 나이를 나이순으로 정렬하여 보여줍니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
