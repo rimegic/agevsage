@@ -30,6 +30,9 @@ searchInput.addEventListener('keydown', (e) => {
     }
 });
 
+// 인메모리 캐시 (검색된 인물 정보 저장)
+const searchCache = {}; // { query: { people: [...] } }
+
 /**
  * 메인 검색 처리 함수
  */
@@ -40,6 +43,14 @@ async function handleSearch() {
     const query = searchInput.value.trim();
     if (!query) {
         displayError('검색할 인물 이름을 입력해주세요.');
+        return;
+    }
+
+    // 캐시 확인
+    if (searchCache[query]) {
+        console.log(`[Cache] Returning cached data for query: ${query}`);
+        processAndRenderResults(searchCache[query].people);
+        toggleLoading(false);
         return;
     }
 
@@ -131,6 +142,8 @@ async function handleSearch() {
             displayError('검색 결과를 찾을 수 없습니다. 인물 이름을 다시 확인해주세요.');
             return;
         }
+        // 캐시에 저장
+        searchCache[query] = parsedResponse;
         processAndRenderResults(parsedResponse.people);
 
     } catch (err) {
